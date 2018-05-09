@@ -1,0 +1,4 @@
+div.root {
+  display: flex;
+  flex-direction: row;
+}

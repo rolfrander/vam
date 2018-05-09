@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="theme-color" content="#000000">
+    <!--
+      manifest.json provides metadata used when your web app is added to the
+      homescreen on Android. See https://developers.google.com/web/fundamentals/engage-and-retain/web-app-manifest/
+    -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="stylesheet" href="vam.css">
+    <title>VAM medlemsliste</title>
+  </head>
+  <body>
+    <script
+    src="https://code.jquery.com/jquery-3.3.1.min.js"
+    integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+    crossorigin="anonymous"></script>
+    <script>
+
+      function post(url, data, callback) {
+        //console.log("POST "+url);
+        //console.log(JSON.stringify(data));
+        $.ajax({
+          type: 'post',
+          url: 'http://localhost:10010'+url,
+          data: JSON.stringify(data),
+          contentType: 'application/json',
+          traditional: true,
+          success: callback
+        });
+      }
+
+      function get(url, callback) {
+        $.ajax({
+          type: 'get',
+          url: 'http://localhost:10010'+url,
+          traditional: true,
+          success: callback
+        });
+      }
+
+      var instrumenter;
+
+      function visMedlem(data) {
+        var medlem = data.object;
+        var selector = "ul#medl_"+medlem.hovedinstrument;
+        console.log(selector);
+        var instrliste = $(selector);
+        console.log(instrliste.length);
+        instrliste.append(element("li", medlem.navn+" ("+medlem.biinstrumenter+")"));
+      }
+
+      function element(tag, content) {
+        //console.log("nytt element <"+tag+">"+content);
+        var e = document.createElement(tag);
+        e.textContent = content;
+        return e;
+      }
+
+      function nyttMedlemFraSkjema() {
+        var navn = $('form#medlem input[name="navn"]').val();
+        var inst = $('form#medlem select[name="instrument"]').val();
+        var biinst = [];
+        $('form#medlem #biinstrumenter input:checked').each(function() {
+          biinst.push(this.value.toLowerCase());
+        })
+        //console.log("submit "+navn+" "+inst+" "+JSON.stringify(biinst));
+        post('/medlemmer', {
+          navn: navn,
+          hovedinstrument: inst.toLowerCase(),
+          biinstrumenter: biinst
+        }, visMedlem);
+        $("ul#debug").append(element("li", inst+": "+navn+" ("+biinst+")"));
+      }
+
+      function lastMedlemsliste() {
+        get("/medlemmer", function(data) {
+          data.forEach(visMedlem);
+        })
+      }
+
+      function hentInstrumenter() {
+        get("/instrumenter", function(data) {
+          instrumenter = data;
+
+          var select = $('form#medlem select[name="instrument"]');
+          var biinstrumenter = $('form#medlem #biinstrumenter');
+          var medlemsliste = $("ul#medlemsliste");
+          console.log("medlemsliste "+medlemsliste.length);
+          data.forEach(function(i) {
+            //console.log(select.text);
+            var option = element("option", i);
+            option.setAttribute("value", i);
+            select.append(option);
+
+            var div = element("div", "");
+            var check = element("input", "");
+            check.setAttribute("type", "checkbox");
+            //check.setAttribute("id", i);
+            check.setAttribute("name", "biinstrumenter");
+            check.setAttribute("value", i);
+            div.append(check);
+
+            var label = element("label", i);
+            label.setAttribute("for", i);
+            div.append(label);
+
+            biinstrumenter.append(div);
+
+            var li_medl = element("li", i);
+            var ul_medl = element("ul", "");
+            ul_medl.setAttribute("id", "medl_"+i);
+            li_medl.append(ul_medl);
+            medlemsliste.append(li_medl);
+          })
+        })
+      }
+
+      $(document).ready(function(event) {
+        console.log("document loaded")
+
+        hentInstrumenter();
+
+        lastMedlemsliste();
+
+        $("form#medlem").submit(function(event) {
+          event.preventDefault();
+          nyttMedlemFraSkjema();
+        });
+      })
+    </script>
+    <div id="root">
+      <form id="medlem">
+        <input type="hidden" name="id" value=""></input>
+        <div><label for="navn">Navn: </label><input type="text" name="navn"></input></div>
+        <div><label for="instrument">Instrument: </label><select name="instrument"></select></div>
+        <div>
+          <fieldset id="biinstrumenter">
+            <legend>Bi-instrumenter: </legend>
+          </fieldset>
+        </div>
+        <div><input type="submit" name="submit" value="nytt medlem"></div>
+      </form>
+      <div>Medlemsliste:<ul id="medlemsliste"></ul></div>
+      <div>Debug:<ul id="debug"></ul></div>
+    </div>
+  </body>
+</html>
